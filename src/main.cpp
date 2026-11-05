@@ -18,13 +18,22 @@ Versão 0.1
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <LiquidCrystal_I2C.h>
+#include "led.h"
 #include <Botao.h>
+#include <HTTPClient.h>
 
-LiquidCrystal_I2C lcd(0x20, 16, 2);
-Botao btn();
+
+
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Botao btn(0);
+
+
+
 
 const char* SSID = "SENAI EDUCACIONAL";
 const char* SENHA = "info@134";
+
+const char* enderecoAPI = "https://pokeapi.co/api/v2/pokemon/";
 
 const char* BROKER = "broker.emqx.io";
 
@@ -35,9 +44,18 @@ const char* TOPICO_PUB = "senai134/esp32/comunicacao_entre_esp/treinador";
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);
 
+//*=========================PROTOTIPANDO FUNCOES====================================
+String pedirParaApi(String);
+String idAleatorio();
+
+
+//*====================SETUP==============================
 void setup() {
   Serial.begin(115200);
   Serial.println();
+  btn.iniciar();
+
+
 
   WiFi.begin(SSID, SENHA);
   while(WiFi.status() != WL_CONNECTED){
@@ -50,7 +68,79 @@ void setup() {
   Serial.printf("\n\rConectado ao Servidor do broker %s\n\r", BROKER);
 
   mqtt.setServer(BROKER, PORTA);
-  //mqtt.setCallback();
+  String id = "esp32-D" + String((uint32_t)ESP.getEfuseMac(), HEX);
+
+  bool brokerConectado = false;
+  brokerConectado = mqtt.connect(id.c_str());
+
+  if(brokerConectado){
+    Serial.printf("\n\r Broker %s conectado com sucesso!\n\r", BROKER);
+    mqtt.subscribe(TOPICO_SUB);
+  } else{
+    Serial.printf("Falha ao conectar ao broker %s\n\r", BROKER);
+    Serial.print("Falha: ");
+    Serial.println(mqtt.state());
+  }
+
+  
+
 }
 
-void loop() {}
+//*==================================LOOP=============================
+void loop() 
+{
+  btn.atualizar();
+
+  JsonDocument doc;
+  String pokedex;
+
+  if(btn.pressionou())
+  {
+  pokedex = pedirParaApi(idAleatorio()).c_str();
+
+  DeserializationError erroJson = deserializeJson(doc, pokedex);
+
+  Serial.printf("\n\rPokemon sorteado: ");
+
+  String name = "";
+    if(doc["name"].is<const char*>())
+    {
+      name = "Nome: " + doc["name"].as<String>();
+    }
+
+    Serial.println(name.c_str());
+  }
+}
+
+//* ==============FUNCOES===================
+String pedirParaApi(String id)
+{
+  HTTPClient http;
+  
+  //id = idAleatorio();
+
+  http.begin(enderecoAPI + id); //*pega o link do site e o final da URL para acessar a informacao desejada
+
+  int codigoHTTP = http.GET(); //*pega o codigo da pagina (200) para verificar se a pagina existe (Retorna o codigo HTTP ex: 200 ok ou 404 nao encontrado)
+
+  String resposta;
+
+  if (codigoHTTP == 200)
+  {
+    resposta = http.getString(); //*Retorna o Conteudo HTML da pagina (pega a string)
+  }
+  else
+  {
+    Serial.printf("Deu erro. Codigo: %d", codigoHTTP);
+  }
+  http.end();
+  return resposta;
+}
+
+
+String idAleatorio()
+{
+  String n = String(random(1, 152));
+
+  return n;
+}
