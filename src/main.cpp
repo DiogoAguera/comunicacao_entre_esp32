@@ -18,7 +18,6 @@ Versão 1.0
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 #include <LiquidCrystal_I2C.h>
-#include "led.h"
 #include <Botao.h>
 #include <HTTPClient.h>
 
@@ -238,48 +237,47 @@ void aoReceber(char* topico, byte* payLoad, unsigned int tamanho)
   }
 
   void tratarJson(String mensagem)
+{
+  JsonDocument docB;
+
+  DeserializationError codigoErro = deserializeJson(docB, mensagem);
+  //verifica se recebe true ou false
+  if (codigoErro || !docB["capturado"].is<bool>())
   {
-    JsonDocument docB;
-
-    DeserializationError codigoErro = deserializeJson(docB, mensagem);
-
-    bool capturado = docB["capturado"].as<bool>();//*sem tratamento de erro
-
-    if(capturado)
-    {
-      Serial.println("O pokemon foi capturado");//23
-      lcd.clear();
-      lcd.setCursor(4,1);
-      lcd.print("O pokemon foi");//13
-      lcd.setCursor(6,2);
-      lcd.print("capturado");
-      rgbLedWrite(48,0,255,0);
-      ledDesligaEm = millis() + 3000; 
-      
-    }
-    else if(!capturado)
-    {
-      Serial.println("Pokemon não capturado");
-      lcd.clear();
-      lcd.setCursor(4,1);
-      lcd.print("O pokemon nao");//13
-      lcd.setCursor(4,2);
-      lcd.print("foi capturado");//13
-      rgbLedWrite(48,0,0,255);
-      ledDesligaEm = millis() + 3000; 
-      
-    }
-    else
-    {
-      lcd.clear();
-      lcd.setCursor(2,1);
-      lcd.print("Funcao invalida");
-      rgbLedWrite(48,255,0,0);
-      ledDesligaEm = millis() + 3000;
-    }
-
+    Serial.println("Mensagem invalida");
+    lcd.clear();
+    lcd.setCursor(2,1);
+    lcd.print("Funcao invalida");
+    rgbLedWrite(48,255,0,0);          
+    ledDesligaEm = millis() + 3000;
+    return;
   }
 
+  bool capturado = docB["capturado"].as<bool>();
+
+  if (capturado)
+  {
+    Serial.println("O pokemon foi capturado");
+    lcd.clear();
+    lcd.setCursor(4,1);
+    lcd.print("O pokemon foi");
+    lcd.setCursor(6,2);
+    lcd.print("capturado");
+    rgbLedWrite(48,0,255,0);        
+  }
+  else
+  {
+    Serial.println("Pokemon nao capturado");
+    lcd.clear();
+    lcd.setCursor(4,1);
+    lcd.print("O pokemon nao");
+    lcd.setCursor(4,2);
+    lcd.print("foi capturado");
+    rgbLedWrite(48,0,0,255);         
+  }
+
+  ledDesligaEm = millis() + 3000;
+}
   void controlarLed()
 {
   if (ledDesligaEm != 0 && millis() >= ledDesligaEm)
